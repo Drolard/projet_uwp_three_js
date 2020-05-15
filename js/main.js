@@ -1,7 +1,8 @@
 var UNITWIDTH = 90; // Width of a cubes in the maze
 var UNITHEIGHT = 45; // Height of the cubes in the maze
 
-var camera, scene, renderer;
+var camera, scene, renderer, collidableObjects;
+var totalCubesWide = 20; // How many cubes wide the maze will be
 
 init();
 animate();
@@ -37,9 +38,11 @@ function init() {
     // Add the camera
     scene.add(camera);
 
-    // Add the walls(cubes) of the maze
+    // On ajoute les mur générés aléatoirement, le solet les mur de perimetre
+    collidableObjects = [];
     createMazeCubes();
-
+    createGround();
+    createPerimWalls();
     // Add lights to the scene
     addLights();
 
@@ -61,27 +64,102 @@ function render() {
 //  Fonctions de création des elements  //
 //----------------------//
 
-
 function createMazeCubes() {
-  // Make the shape of the cube that is UNITWIDTH wide/deep, and UNITHEIGHT tall
+  // Maze wall mapping, assuming even square
+  // 1's are cubes, 0's are empty space
+  var map = generateRandomMap();
+  console.log(map);
+
+  // wall details
   var cubeGeo = new THREE.BoxGeometry(UNITWIDTH, UNITHEIGHT, UNITWIDTH);
-  // Make the material of the cube and set it to blue
   var cubeMat = new THREE.MeshPhongMaterial({
-    color: 0x81cfe0,
+    color: 0x098D62,
   });
 
-  // Combine the geometry and material to make the cube
-  var cube = new THREE.Mesh(cubeGeo, cubeMat);
+  // Keep cubes within boundry walls
+  var widthOffset = UNITWIDTH / 2;
+  // Put the bottom of the cube at y = 0
+  var heightOffset = UNITHEIGHT / 2;
 
-  // Add the cube to the scene
-  scene.add(cube);
+  // Place walls where 1`s are
+  for (let i = 0; i < totalCubesWide; i++) {
+    for (let j = 0; j < map[i].length; j++) {
+      // If a 1 is found, add a cube at the corresponding position
+      if (map[i][j]) {
+        // Make the cube
+        var cube = new THREE.Mesh(cubeGeo, cubeMat);
+        // Set the cube position
+        cube.position.z = (i - totalCubesWide / 2) * UNITWIDTH + widthOffset;
+        cube.position.y = heightOffset;
+        cube.position.x = (j - totalCubesWide / 2) * UNITWIDTH + widthOffset;
+        // Add the cube
+        scene.add(cube);
+        // Used later for collision detection
+        collidableObjects.push(cube);
+      }
+    }
+  }
+    // The size of the maze will be how many cubes wide the array is * the width of a cube
+    mapSize = totalCubesWide * UNITWIDTH;
+}
 
-  // Update the cube's position
-  cube.position.y = UNITHEIGHT / 2;
-  cube.position.x = 0;
-  cube.position.z = -100;
-  // rotate the cube by 30 degrees
-  cube.rotation.y = degreesToRadians(30);
+function generateRandomMap(){
+  var map_temp = [];
+  var ligne_temp, rand;
+  for (let i = 0; i < totalCubesWide; i++) {
+    ligne_temp = []
+    for (let j = 0; j < totalCubesWide; j++) {
+      rand = Math.random()*10;
+      ligne_temp.push((rand >= 8)?'1':'0')
+    }
+    map_temp.push(ligne_temp);
+  }
+  return map_temp;
+}
+
+
+var mapSize;    // The width/depth of the maze
+
+function createGround() {
+    // Create ground geometry and material
+    var groundGeo = new THREE.PlaneGeometry(mapSize, mapSize);
+    var groundMat = new THREE.MeshPhongMaterial({ color: 0x424530, side: THREE.DoubleSide});
+
+    var ground = new THREE.Mesh(groundGeo, groundMat);
+    ground.position.set(0, 1, 0);
+    // Rotate the place to ground level
+    ground.rotation.x = degreesToRadians(90);
+    scene.add(ground);
+}
+
+function createPerimWalls() {
+    var halfMap = mapSize / 2;  // Half the size of the map
+    var sign = 1;               // Used to make an amount positive or negative
+
+    // Loop through twice, making two perimeter walls at a time
+    for (let i = 0; i < 2; i++) {
+        var perimGeo = new THREE.PlaneGeometry(mapSize, UNITHEIGHT*5);
+        // Make the material double sided
+        var perimMat = new THREE.MeshPhongMaterial({ color: 0x464646, side: THREE.DoubleSide });
+        // Make two walls
+        var perimWallLR = new THREE.Mesh(perimGeo, perimMat);
+        var perimWallFB = new THREE.Mesh(perimGeo, perimMat);
+
+        // Create left/right wall
+        perimWallLR.position.set(halfMap * sign, UNITHEIGHT / 2, 0);
+        perimWallLR.rotation.y = degreesToRadians(90);
+        scene.add(perimWallLR);
+        // Used later for collision detection
+        collidableObjects.push(perimWallLR);
+        // Create front/back wall
+        perimWallFB.position.set(0, UNITHEIGHT / 2, halfMap * sign);
+        scene.add(perimWallFB);
+
+        // Used later for collision detection
+        collidableObjects.push(perimWallFB);
+
+        sign = -1; // Swap to negative value
+    }
 }
 
 function addLights() {
