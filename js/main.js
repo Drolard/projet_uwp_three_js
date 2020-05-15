@@ -439,3 +439,12 @@ function degreesToRadians(degrees) {
 function radiansToDegrees(radians) {
   return radians * 180 / Math.PI;
 }
+
+
+////// TODO ////////
+// Déplacement du dino
+// Colision du joueur avec les blocs et les mur
+// Colisions du dino et animation du dino
+// Implementer la chasse
+// Fin du jeu
+// Page de parametre/difficulté
