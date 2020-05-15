@@ -3,9 +3,40 @@ var UNITHEIGHT = 45; // Height of the cubes in the maze
 
 var camera, scene, renderer, collidableObjects;
 var totalCubesWide = 20; // How many cubes wide the maze will be
+var controls;
+var controlsEnabled = false;
 
+// HTML elements to be changed
+var blocker = document.getElementById('blocker');
+
+getPointerLock();
 init();
 animate();
+
+//----------------------//
+//  Fonctions pour bloquer la souris  //
+//----------------------//
+
+function getPointerLock() {
+  document.onclick = function () {
+    container.requestPointerLock();
+  }
+  document.addEventListener('pointerlockchange', lockChange, false);
+}
+
+function lockChange() {
+    // Turn on controls
+    if (document.pointerLockElement === container) {
+        // Hide blocker and instructions
+        blocker.style.display = "none";
+        controls.enabled = true;
+    // Turn off the controls
+    } else {
+      // Display the blocker and instruction
+        blocker.style.display = "";
+        controls.enabled = false;
+    }
+}
 
 //----------------------//
 //  Fonctions d'affichages  //
@@ -37,6 +68,9 @@ function init() {
 
     // Add the camera
     scene.add(camera);
+
+    controls = new THREE.PointerLockControls(camera);
+    scene.add(controls.getObject());
 
     // On ajoute les mur générés aléatoirement, le solet les mur de perimetre
     collidableObjects = [];
@@ -81,11 +115,33 @@ function createMazeCubes() {
   // Put the bottom of the cube at y = 0
   var heightOffset = UNITHEIGHT / 2;
 
+  //On fait une zone de 2x2 au centre si width pair, 3x3 si impair
+  if(totalCubesWide%2){
+    let mid = totalCubesWide/2;
+    map[mid][mid] = 0;
+    map[mid+1][mid] = 0;
+    map[mid][mid+1] = 0;
+    map[mid+1][mid+1] = 0;
+  } else {
+    let mid = totalCubesWide/2;
+    map[mid-1][mid-1] = 0;
+    map[mid-1][mid] = 0;
+    map[mid-1][mid+1] = 0;
+
+    map[mid][mid-1] = 0;
+    map[mid][mid] = 0;
+    map[mid][mid+1] = 0;
+
+    map[mid+1][mid-1] = 0;
+    map[mid+1][mid] = 0;
+    map[mid+1][mid+1] = 0;
+  }
+
   // Place walls where 1`s are
   for (let i = 0; i < totalCubesWide; i++) {
     for (let j = 0; j < map[i].length; j++) {
       // If a 1 is found, add a cube at the corresponding position
-      if (map[i][j]) {
+      if (map[i][j]){
         // Make the cube
         var cube = new THREE.Mesh(cubeGeo, cubeMat);
         // Set the cube position
@@ -99,6 +155,7 @@ function createMazeCubes() {
       }
     }
   }
+
     // The size of the maze will be how many cubes wide the array is * the width of a cube
     mapSize = totalCubesWide * UNITWIDTH;
 }
@@ -110,7 +167,7 @@ function generateRandomMap(){
     ligne_temp = []
     for (let j = 0; j < totalCubesWide; j++) {
       rand = Math.random()*10;
-      ligne_temp.push((rand >= 8)?'1':'0')
+      ligne_temp.push((rand >= 8)?1:0)
     }
     map_temp.push(ligne_temp);
   }
@@ -178,7 +235,6 @@ function addLights() {
 //----------------------//
 //  Fonctions autres, petites fonctionnalites  //
 //----------------------//
-
 
 function onWindowResize() {
 
