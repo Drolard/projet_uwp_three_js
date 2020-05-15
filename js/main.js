@@ -23,14 +23,19 @@ var PLAYERSPEED = 800.0;
 
 var clock;
 
+var DINOSCALE = 22;  // How big our dino is scaled to
+
+var dino;
+var loader = new THREE.JSONLoader();
+
+var instructions = document.getElementById('instructions');
 
 getPointerLock();
 init();
-animate();
 
-//----------------------//
+//------------------------------------//
 //  Fonctions pour bloquer la souris  //
-//----------------------//
+//------------------------------------//
 
 function getPointerLock() {
   document.onclick = function () {
@@ -53,9 +58,13 @@ function lockChange() {
   }
 }
 
-//----------------------//
-//  Fonctions d'affichages  //
-//----------------------//
+//--------------------------//
+//  INITIALISATION DU JEU   //
+//--------------------------//
+
+// On crée la scene, le moteur de rendu et la caméra en lui donnant les controle de la souris
+// Puis on génère les mur, le sol, le périmètre et les lumières
+// Et finalement on se met à écouter les mouvements du joueurs
 
 
 function init() {
@@ -102,22 +111,64 @@ function init() {
   listenForPlayerMovement();
 }
 
-function animate() {
-  render();
-  // Keep updating the renderer
-  requestAnimationFrame(animate);
-  // Get the change in time between frames
-  var delta = clock.getDelta();
-  animatePlayer(delta);
-}
-
-function render() {
-  renderer.render(scene, camera);
-}
-
 //----------------------//
+//  CHARGEMENT DU DINO  //
+//----------------------//
+
+// Asynchronement (donc bloquant), on charge le dino et on le crée dans le monde
+// A la fin du chargement, on lance animate(),fonctions qui va faire le rendu du jeu
+
+// load the dino JSON model and start animating once complete
+ loader.load('./models/dino.json', function (geometry, materials) {
+
+
+     // Get the geometry and materials from the JSON
+     var dinoObject = new THREE.Mesh(geometry, new THREE.MultiMaterial(materials));
+
+     // Scale the size of the dino
+     dinoObject.scale.set(DINOSCALE, DINOSCALE, DINOSCALE);
+     dinoObject.rotation.y = degreesToRadians(-90);
+     dinoObject.position.set(30, 0, -400);
+     dinoObject.name = "dino";
+     scene.add(dinoObject);
+
+     // Store the dino
+     dino = scene.getObjectByName("dino");
+
+     // Model is loaded, switch from "Loading..." to instruction text
+     instructions.innerHTML = "<strong>Click to Play!</strong> </br></br> W,A,S,D or arrow keys = move </br>Mouse = look around";
+
+     // Call the animate function so that animation begins after the model is loaded
+     animate();
+ });
+
+ //----------------------//
+ //  ANIMATE ET RENDER   //
+ //----------------------//
+
+ // Deux méthodes créant les rendu et faisant avancer le joueur très régulièrement via la méthode requestAnimationFrame;
+
+ function animate() {
+   render();
+   // Get the change in time between frames
+   var delta = clock.getDelta();
+   animatePlayer(delta);
+   // Keep updating the renderer
+   requestAnimationFrame(animate);
+ }
+
+ function render() {
+   renderer.render(scene, camera);
+ }
+
+//--------------------------------------//
 //  Fonctions de création des elements  //
-//----------------------//
+//--------------------------------------//
+
+
+//Fonctions pour créer les cubes dans la scene, se basant sur une map aléatoire de 1 et de 0
+//On force en plus un espace vide au milieu pour que le joueur ne se restrouve pas bloqué
+//TODO : Faire que le joueur apparaise a un endroit aléatoire et que cet endroit soit sans blocs.
 
 function createMazeCubes() {
   // Maze wall mapping, assuming even square
@@ -181,6 +232,9 @@ function createMazeCubes() {
   mapSize = totalCubesWide * UNITWIDTH;
 }
 
+
+//Générateur de map aléatoire via une constante définissant le nombre de bloc de longueur
+
 function generateRandomMap(){
   var map_temp = [];
   var ligne_temp, rand;
@@ -198,6 +252,9 @@ function generateRandomMap(){
 
 var mapSize;    // The width/depth of the maze
 
+
+//Fonction pour créer le sol
+
 function createGround() {
   // Create ground geometry and material
   var groundGeo = new THREE.PlaneGeometry(mapSize, mapSize);
@@ -209,6 +266,9 @@ function createGround() {
   ground.rotation.x = degreesToRadians(90);
   scene.add(ground);
 }
+
+
+//Fonction pour créer les murs de périmètre en 2 étapes
 
 function createPerimWalls() {
   var halfMap = mapSize / 2;  // Half the size of the map
@@ -240,6 +300,9 @@ function createPerimWalls() {
   }
 }
 
+
+//Fonctions pour ajouter des lumières
+
 function addLights() {
   var lightOne = new THREE.DirectionalLight(0xffffff);
   lightOne.position.set(1, 1, 1);
@@ -255,6 +318,9 @@ function addLights() {
 //----------------------//
 //  Fonctions joueurs  //
 //----------------------//
+
+
+//Fonctions pour écouter le mouvement du joueur, settant des variable a true ou false
 
 function listenForPlayerMovement() {
 
@@ -317,10 +383,13 @@ function listenForPlayerMovement() {
   document.addEventListener('keyup', onKeyUp, false);
 }
 
+
+// Fonctions pour animer le joueur se basant sur un delta de temps pour ne pas etre embeté par les framerate bas
+
 function animatePlayer(delta) {
   // Gradual slowdown
-  playerVelocity.x -= playerVelocity.x * 10.0 * delta;
-  playerVelocity.z -= playerVelocity.z * 10.0 * delta;
+  playerVelocity.x -= playerVelocity.x * 8 * delta;
+  playerVelocity.z -= playerVelocity.z * 8 * delta;
 
   if (moveForward) {
     playerVelocity.z -= PLAYERSPEED * delta;
@@ -343,10 +412,15 @@ function animatePlayer(delta) {
   controls.getObject().translateZ(playerVelocity.z * delta);
 }
 
-//----------------------//
-//  Fonctions autres, petites fonctionnalites  //
-//----------------------//
 
+
+
+//---------------------------------------------//
+//  Fonctions autres, petites fonctionnalites  //
+//---------------------------------------------//
+
+
+//Permet de toujours avoir une scene a la bonne taille
 function onWindowResize() {
 
   camera.aspect = window.innerWidth / window.innerHeight;
@@ -354,6 +428,9 @@ function onWindowResize() {
 
   renderer.setSize(window.innerWidth, window.innerHeight);
 }
+
+
+//Conversion de degré en radiant
 
 function degreesToRadians(degrees) {
   return degrees * Math.PI / 180;
